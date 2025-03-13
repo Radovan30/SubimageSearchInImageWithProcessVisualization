@@ -1,4 +1,4 @@
-Doba zpracování: 3.33 sekund
+Doba zpracování: 7.66 sekund
 Top 10 shod (hodnota metriky, x, y):
 0.0617, 333, 293
 19.8923, 333, 292

@@ -4,30 +4,35 @@ import multiprocessing as mp
 
 
 class ImageMatcher:
-    """Třída pro hledání vzoru v obrázku pomocí paralelního zpracování."""
 
     def __init__(self, input_image, template_image, output_file):
         self.input_image = input_image
         self.template_image = template_image
         self.output_file = output_file
+
         self.obr = None
         self.vzr = None
+        # Seznam pro ukládání výsledků
         self.results = []
 
     def load_images(self):
-        """Načtení černobílých obrázků."""
+        # Načte oba černobíle obrázky
         self.obr = cv2.imread(self.input_image, cv2.IMREAD_GRAYSCALE)
         self.vzr = cv2.imread(self.template_image, cv2.IMREAD_GRAYSCALE)
 
+        # Kontrola načtení obrázku
         if self.obr is None or self.vzr is None:
             raise FileNotFoundError("Chyba při načítání obrázků.")
 
     def compute_metric(self, start_x, end_x, queue):
-        """Výpočet metriky pro část obrazu ve vymezeném rozsahu."""
+        # Ziskání rozměru obrázků
         h_obr, w_obr = self.obr.shape
         h_vzr, w_vzr = self.vzr.shape
+
+        # Sdílené výsledky
         local_results = []
 
+        # Procházení sloupců a řádků tak, aby se vzor vešel do obrázku
         for x in range(start_x, end_x):
             for y in range(h_obr - h_vzr + 1):
                 patch = self.obr[y:y + h_vzr, x:x + w_vzr]
@@ -37,17 +42,23 @@ class ImageMatcher:
         queue.put(local_results)
 
     def run_parallel_search(self):
-        """Spuštění paralelního hledání vzoru."""
+        # Zjistí počet dostupných CPU jader, které se použijí pro paralelní zpracování
         num_processes = mp.cpu_count()
+        # Vytvoření fronty, do které se budou posílat výsledky
         queue = mp.Queue()
+        # Seznam do kterého se ukládají vytvořené procesy
         processes = []
+
+        # Získaní rozměru obrazků
         h_obr, w_obr = self.obr.shape
         h_vzr, w_vzr = self.vzr.shape
 
+        # Určuje šířku segmentu pro jeden proces
         step = (w_obr - w_vzr + 1) // num_processes
         ranges = [(i * step, (i + 1) * step if i != num_processes - 1 else (w_obr - w_vzr + 1)) for i in
                   range(num_processes)]
 
+        # Pro každé rozmezí vytvoříme proces, který volá compute_metric
         for start_x, end_x in ranges:
             p = mp.Process(target=self.compute_metric, args=(start_x, end_x, queue))
             p.start()
@@ -59,8 +70,8 @@ class ImageMatcher:
         for p in processes:
             p.join()
 
+    # Setřízení a zápis výsledku do souboru (Top 10)
     def save_results(self, processing_time):
-        """Uloží výsledky do souboru."""
         self.results.sort()
         best_results = self.results[:10]
 
